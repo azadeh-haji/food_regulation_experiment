@@ -1,0 +1,1092 @@
+// prepare session/subject info
+var subject_id = jsPsych.data.getURLVariable('PROLIFIC_PID');
+var study_id = jsPsych.data.getURLVariable('STUDY_ID');
+var session_id = jsPsych.data.getURLVariable('SESSION_ID');
+var respDirection = jsPsych.randomization.sampleWithoutReplacement(["LR", "RL"],1)[0];
+
+jsPsych.data.addProperties({subject: subject_id,
+                            study_id: study_id,
+                            session_id: session_id,
+                            cond: respDirection,
+});
+
+//numAllFoods is 60 stimuli to be presented to subjects. We can use a subset for testing and debugging only 
+var numAllFoods = 20; 
+// numStimPerQuad is 10 stimuli per taste-health(high/low) quadrants; 
+//best results with an even number 
+//1/2 of this number for each condition (Nat,Health)
+// 4*numStimPerQuad can't be larger than numAllFoods
+var numStimPerQuad = 4;
+// n_blocks is 10 blocks for liking rating, Natural, and Health choice responses; can use less for testing and debugging
+var n_blocks = 2;
+
+// get and preload the food pics 
+var food_stimuli = []; // food_images variable is read from imageList.js
+for (f in food_images.slice(0,numAllFoods)){ //.slice(0,5)
+    food_stimuli.push({stimulus:food_images[f]});
+};
+var practice_stimuli = []; // practice_images variable is read from imageList.js
+for (f in practice_images){ //.slice(0,5)
+    practice_stimuli.push({stimulus:practice_images[f]});
+};
+
+// console.log(food_stimuli.length);
+
+var preload_foods = {
+    type: 'preload',
+    images: food_images,
+    };
+var preload_practicefoods = {
+    type: 'preload',
+    images: practice_images,
+};
+
+// var preload_others = {
+//     type: 'preload',
+//     images: other_images, // this is read from the imageList.js
+//     };
+
+timeline = [];
+timeline.push(preload_foods);
+timeline.push(preload_practicefoods);
+
+var welcome_block = {
+    type: 'html-button-response',
+    // canvas_size: [500,200],
+    data:{
+        trial: "welcome"
+    },
+    stimulus:`<p>Welcome! In this experiment, we are interested in understanding how people decide what they want to eat.</p>
+                <p>Clicking on the button below will take you to the instructions.</p>`,//start full-screen and 
+    choices:["Click here to continue"],
+};
+
+timeline.push(welcome_block);
+
+// specify response labels
+var tasteRatingLabels = [
+                    'Very Untasty',
+                    'Moderately Untasty',
+                    'Slightly Untasty',
+                    'Slightly Tasty',
+                    'Moderately Tasty',
+                    'Very Tasty',
+];
+var healthRatingLabels = [ 
+                    'Very Unhealthy',
+                    'Moderately Unhealthy',
+                    'Slightly Unhealthy',
+                    'Slightly Healthy',
+                    'Moderately Healthy',
+                    'Very Healthy',
+];
+var likingRatingLabels = [
+                    'Strongly dislike',
+                    'Moderately dislike',
+                    'Slightly dislike',
+                    'Slightly like',
+                    'Moderately like',
+                    'Strongly like',
+];
+var choiceLabels = [
+                    'Strong No',
+                    'Moderate No',
+                    'Slight No',
+                    'Slight Yes',
+                    'Moderate Yes',
+                    'Strong Yes',
+];
+var hungerLabels = [
+                    'Stuffed',
+                    'Moderately full',
+                    'Slightly full',
+                    'Slightly hungry',
+                    'Moderately hungry',
+                    'Starving',
+];
+
+
+if (respDirection == 'RL'){//(subjID % 2 == 0) {
+    tasteRatingLabels  = tasteRatingLabels.reverse();
+    healthRatingLabels = healthRatingLabels.reverse();
+    likingRatingLabels = likingRatingLabels.reverse();
+    choiceLabels       = choiceLabels.reverse();
+    // healthRatingKey = 'stimuli/HealthRatingKeys_RL.png';
+    // tasteRatingKey  = 'stimuli/TasteRatingKeys_RL.png';
+};
+var hungerQuestionPre = {
+    type: 'html-button-response',
+    stimulus: `<p>Before we begin the experimental tasks, we would like to know 
+    how hungry you feel <strong>RIGHT NOW</strong>.</p>
+    <p>Please indicate how hungry you are at this moment by pressing a key from
+    1 (stuffed) to 6 (starving).</p>`,
+    choices:hungerLabels,//['1','2','3','4','5','6'],
+    margin_vertical: '30px',
+    margin_horizontal: '8px',
+    // stimulus_height: 500,
+    // trial_duration: 4000,
+    response_ends_trial:true,
+    on_finish: function(data){
+        data.trial = 'hungerRatingPre';
+        data.responseLabel = hungerLabels[data.response];
+        data.rating = parseInt(data.response);
+    },
+};
+timeline.push(hungerQuestionPre);
+
+// <!-- Instructions -->
+var intro_instructions = {
+    type: 'instructions',
+    // canvas_size: [500,200],
+
+    pages:[
+    `<div class="instructions">
+            <p>In the first part of the experiment, we are interested in your 
+                <strong>perceptions of different foods</strong>.</p>
+                <p>You will see several different pictures of foods, 
+                and for each one we would like you to rate it on a number of dimensions.</p>
+        </div>`,
+        `<div class='instructions'>
+            <p>For every food, you should consider the food 
+                <strong>EXACTLY as it is displayed</strong> on a plate, 
+                in a bowl, or in a glass, and evaluate that food, 
+                in the amount shown.</p>
+        </div>`,
+    ],
+    show_clickable_nav: true,
+    data:{
+        trial: "intro instructions",
+    },
+};
+timeline.push(intro_instructions);
+
+var taste_instructions = {
+    type: 'instructions',
+    pages: [
+        `<div class='instructions'>
+            <p>Now you will see several different foods, and for 
+            each one we would like you to rate how <strong>tasty</strong> you 
+            personally find the food. Regardless of other considerations 
+            like health or price, <strong>please rate how TASTY this food seems 
+            to you on the six-point scale presented below the food picture. 
+            Please try to use the full range of responses</strong>.</p>
+            
+            <p>To make the rating, use the indicated keys, which will 
+            appear below each food.There is no time limit for your response.</p>  
+
+        </div>`,
+    ],
+    show_clickable_nav: true,
+    data:{
+        trial: "taste instructions",
+    },
+
+};
+
+var health_instructions = {
+    type: 'instructions',
+    pages: [
+        `<div class='instructions'>
+            <p>Now you will see several different foods, and for 
+            each one we would like you to rate how <strong>healthy</strong> you 
+            personally find the food. Regardless of other considerations 
+            like tastiness or price, <strong>please rate how HEALTHY this 
+            food seems to you on the six-point scale presented below the food picture. 
+            Please try to use the full range of responses</strong>.</p>
+            
+            <p>To make the rating, use the indicated keys, which will 
+            appear below each food.There is no time limit for your response.</p>  
+
+        </div>`,
+    ],
+    show_clickable_nav: true,
+    data:{
+        trial: "health instructions",
+    },
+};
+
+var fixation = {
+    type: 'html-keyboard-response',
+    stimulus: '<div style="font-size:60px;">+</div>',
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 200,
+    data:{
+        trial:'fixation'
+    }
+};
+
+var tasteRatingTrial = {
+    type: 'image-button-response',
+    stimulus: jsPsych.timelineVariable('stimulus'),//function() {
+    choices:tasteRatingLabels,//['1','2','3','4','5','6'],
+    margin_vertical: '30px',
+    margin_horizontal: '8px',
+    stimulus_height: 500,
+    // trial_duration: 4000,
+    response_ends_trial:true,
+    on_finish: function(data){
+        data.trial = 'tasteRating';
+        data.food = data.stimulus.slice(data.stimulus.indexOf('/')+1);
+        data.responseLabel = tasteRatingLabels[data.response];
+        if (respDirection=='LR') {
+            data.rating = parseInt(data.response);
+        } else {
+            var temp = [ 
+                    'Very Tasty',
+                    'Moderately Tasty',
+                    'Slightly Tasty',
+                    'Slightly Untasty',
+                    'Moderately Untasty',
+                    'Very Untasty',
+            ];
+            data.rating = parseInt(temp.reverse().indexOf(data.responseLabel));
+        };
+    },
+};
+var healthRatingTrial = {
+    type: 'image-button-response',
+    stimulus: jsPsych.timelineVariable('stimulus'),//function() {
+    choices:healthRatingLabels,//['1','2','3','4','5','6'],
+    margin_vertical: '30px',
+    margin_horizontal: '8px',
+    stimulus_height: 500,
+    // trial_duration: 4000,
+    response_ends_trial:true,
+    on_finish: function(data){
+        data.trial = 'healthRating';
+        data.food = data.stimulus.slice(data.stimulus.indexOf('/')+1);
+        data.responseLabel = healthRatingLabels[data.response];
+        if (respDirection=='LR') {
+            data.rating = parseInt(data.response);
+        } else {
+            var temp = [ 
+                    'Very Healthy',
+                    'Moderately Healthy',
+                    'Slightly Healthy',
+                    'Slightly Unhealthy',
+                    'Moderately Unhealthy',
+                    'Very Unhealthy',
+            ];
+            // temp = healthRatingLabels;
+            data.rating = parseInt(temp.reverse().indexOf(data.responseLabel));
+        };
+
+    },
+};
+
+// create blocks
+var block_taste = {
+    timeline: [fixation,tasteRatingTrial],
+    timeline_variables: food_stimuli,
+    randomize_order: true,
+    repetitions: 1
+};
+var block_health = {
+    timeline: [fixation,healthRatingTrial],
+    timeline_variables: food_stimuli,
+    randomize_order: true,
+    repetitions: 1
+};
+
+
+var rateOrder = 0;
+if (Math.random()<.5){//randomize the order of getting tatse and health ratings
+    timeline.push(taste_instructions);
+    timeline.push(block_taste);
+    timeline.push(health_instructions);
+    timeline.push(block_health);
+} else {
+    timeline.push(health_instructions);
+    timeline.push(block_health);
+    timeline.push(taste_instructions);
+    timeline.push(block_taste);
+    rate = 1;
+};
+
+/// practice trials
+var liking_instructions = {
+    type: 'instructions',
+    pages: [
+        `<div class='instructions'>
+            <p>In the second part of the experiment, you will be asked 
+            how much you like different foods.</p>
+            <p>You will see several different pictures of foods, and for 
+            each one we would like you to rate how much you <strong>like</strong> the food.</p>
+            <p> You do not need to think carefully about it.</p>
+            
+            <p>Please just rate <strong>how much you like each food RIGHT NOW</strong>.</p>  
+
+        </div>`,
+        `<div class='instructions'>
+            <p>You are <strong>free to rate the food anything on the scale of 
+            strongly dislike to strongly like</strong>, using it to describe as accurately 
+            as possible how much you like that food.
+
+        </div>`,
+        `<div class='instructions'>
+            <p>But please try to use the full range of responses.</p> 
+            <p>In other words, if you like a food, please think carefully 
+            about whether you like it a little or a lot.</p> 
+            <p>If you don’t like a food, think about whether you feel this 
+                strongly or less strongly.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>You will now complete a <strong>few practice trials</strong> 
+            to get familiar with the key responses.</p>
+            <p>These trials will not count for anything. They are here just to 
+            give you a feel for the task you will be doing.</p>
+
+        </div>`,
+
+        
+    ],
+    show_clickable_nav: true,
+    data:{
+        trial: "liking instructions",
+    },
+};
+
+timeline.push(liking_instructions);
+
+var likingRatingPractice = {
+    type: 'image-button-response',
+    stimulus: jsPsych.timelineVariable('stimulus'),//function() {
+    choices:likingRatingLabels,//['1','2','3','4','5','6'],
+    margin_vertical: '30px',
+    margin_horizontal: '8px',
+    stimulus_height: 500,
+    // trial_duration: 4000,
+    response_ends_trial:true,
+    on_finish: function(data){
+        data.trial = 'likingRatingPractice';
+        data.food = data.stimulus.slice(data.stimulus.indexOf('/')+1);
+        data.responseLabel = likingRatingLabels[data.response];
+        if (respDirection=='LR') {
+            data.rating = parseInt(data.response);
+        } else {
+            var temp = [ 
+                    'Strongly like',
+                    'Moderately like',
+                    'Slightly like',
+                    'Slightly dislike',
+                    'Moderately dislike',
+                    'Very dislike',
+            ];
+            // temp = healthRatingLabels;
+            data.rating = parseInt(temp.reverse().indexOf(data.responseLabel));
+        };
+
+    },
+};
+var block_likingPractice = {
+    timeline: [fixation,likingRatingPractice],
+    timeline_variables: practice_stimuli,
+    randomize_order: true,
+    repetitions: 1
+};
+timeline.push(block_likingPractice);
+
+var choice_instructions = {
+    type: 'instructions',
+    pages: [
+        `<div class='instructions'>
+            <p>In addition, we are interested in <strong>whether or not
+            you want to eat certain foods RIGHT NOW</strong>.</p> 
+            <p> On each trial, you will see a food picture. Your job is simply
+            to indicate <strong>whether you want to eat that food or not</strong>.</p>
+            <p>[will there be a response deadline? It seems that previously we 
+            applied deadline on responses but not ratings]</p>
+            
+        </div>`,
+        `<div class='instructions'>
+            <p>For each food, remember to indicate if you want to eat that food 
+            or not based on <strong>exactly what is shown on the plate, in the bowl,
+             or in the glass</strong>.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>In addition to choosing whether you want to eat it or not, 
+            we are interested in <strong>how strongly you feel</strong>. 
+            So we will ask you to indicate this on a scale from <strong>
+            Strong No to Strong Yes (a six-point scale)</strong>.</p>
+            <p>IMPORTANT: You are still just indicating whether you want 
+            to eat the food or not RIGHT NOW. Either Strong No, No, or 
+            Moderate No mean you don’t want it. Either Strong Yes, Yes, 
+            or Moderate Yes mean you want it. We simply want to know 
+            how strongly you feel.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>You are free to make any of the 6 responses that indicates 
+            whether you want to eat that food or not RIGHT NOW most accurately. 
+            The wanting choices you make are different from your liking ratings 
+            in that your liking ratings indicate your valuation of the food. 
+            On the other hand, these wanting choices indicate how much you 
+            really want to eat that food.</p>
+            <p>But <strong>please try to use the full range of responses</strong>. 
+            In other words, if you want to eat a food, please think carefully about
+            whether you want it a little or a lot. If you don’t want a food, think 
+            about whether you feel this strongly or less strongly.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>You will now complete a <strong>few practice trials</strong> 
+            to get familiar with the key responses.</p>
+            <p>These trials will not count for anything. They are here just to 
+            give you a feel for the task you will be doing.</p>
+
+        </div>`,
+    ],
+    show_clickable_nav: true,
+    data:{
+        trial: "choice instructions",
+    },
+};
+timeline.push(choice_instructions);
+
+var choicePractice = {
+    type: 'image-button-response',
+    stimulus: jsPsych.timelineVariable('stimulus'),//function() {
+    choices:choiceLabels,//['1','2','3','4','5','6'],
+    margin_vertical: '30px',
+    margin_horizontal: '8px',
+    stimulus_height: 500,
+    // trial_duration: 4000,
+    response_ends_trial:true,
+    on_finish: function(data){
+        data.trial = 'choicePractice';
+        data.food = data.stimulus.slice(data.stimulus.indexOf('/')+1);
+        data.responseLabel = choiceLabels[data.response];
+        if (respDirection=='LR') {
+            data.rating = parseInt(data.response);
+        } else {
+            var temp = [ 
+                    'Strong Yes',
+                    'Moderate Yes',
+                    'Slight Yes',
+                    'Slight No',
+                    'Moderate No',
+                    'Strong No',
+            ];
+            // temp = healthRatingLabels;
+            data.rating = parseInt(temp.reverse().indexOf(data.responseLabel));
+        };
+
+    },
+};
+var block_choicePractice = {
+    timeline: [fixation,choicePractice],
+    timeline_variables: practice_stimuli,
+    randomize_order: true,
+    repetitions: 1
+};
+timeline.push(block_choicePractice);
+
+/// Main task
+var condition_instructions = {
+    type: 'instructions',
+    pages: [
+        `<div class='instructions'>
+            <p>There is one more aspect of the task that you should be aware of.
+             We are also interested in understanding <strong>people’s ability to 
+             modulate their food cravings</strong>.</p>
+            
+            <p>There will be two types of choices during the task. On one type, 
+            we will simply ask you to <strong>respond naturally</strong> as you 
+            just did, and allow any thoughts and feelings that arise as you indicate 
+            whether or not you want to eat that food.</p>
+
+            <p>On other trials, we would like you to really <strong>focus on how 
+            healthy the food</strong> is, and think about whether eating it is 
+            consistent with a nutritious and healthy lifestyle as you indicate 
+            whether or not you want to eat that food.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>Hence, when you see the cue <strong>RESPOND NATURALLY</strong>, 
+            you should choose as naturally as possible. Do whatever you need to 
+            let any feelings or thoughts you have come naturally and make whatever
+             choice is most consistent with how you feel in the moment.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>On the other hand, when you see the cue <strong>FOCUS ON HEALTHINESS</strong>, 
+            you should try to think about whether the food is healthy or not. Think carefully 
+            about the nutritional and health benefits and consequences of eating the food. 
+            You should continue to look at the food the whole time and focus on the healthiness 
+            of the food as you decide whether you want to eat it or not.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>Trials where you RESPOND NATURALLY or FOCUS ON HEALTHNIESS will be presented 
+            in blocks.</p>
+            <p>In the beginning of each block, we will display an instructional cue screen 
+            describing whether you should respond naturally or focus on healthiness for the 
+            duration of that block.</p>
+            <p>This cue screen lasts for a few seconds and then you will move on to choices.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>It is very important that you <strong>respond honestly</strong> and consider
+             the instructional cue for each trial in the block. You should try to <strong>
+             keep the instructed consideration in mind as strongly as possible when making 
+             your choices</strong>.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>However, you should also keep in mind that no matter what type of block 
+            you are in, you are ALWAYS FREE TO DECIDE AS YOU PLEASE whether you want to 
+            eat a food item or not. For example, you are free to choose to eat or not eat
+             any food item you want during a focus on healthiness block if you wish to do
+              so. Similarly, you are free to choose to eat or not eat any food item during
+               a respond naturally block if you prefer.</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p>[perhaps instructions on what they receive after task and that we won't
+            present food].</p>
+
+        </div>`,
+        `<div class='instructions'>
+            <p><strong>To summarize, you will find 2 different types of tasks</strong>:</p>
+            <strong>1-Liking Rating</strong>: you will rate how much you like certain foods. 
+            You should indicate your like or dislike and the strength of your feeling.</p>
+
+            <p><strong>2-Choice</strong>:you will be asked to indicate whether you want to 
+            eat certain foods or not, exactly as presented in the moment. You should indicate 
+            your choice and the strength of your feeling. On some trials, you will be asked 
+            to <strong>respond naturally</strong> and on other trials, you will be asked to 
+            <strong>focus on healthiness</strong> before making your choices.</p>
+
+        </div>`,
+        // `<div class='instructions'>
+        //     <p>If you have any questions now, please ask the experimenter.</p>
+        //     <p>Otherwise, press the right arrow key and the task will begin on the next screen.</p>
+
+        // </div>`,
+
+    ],
+    show_clickable_nav: true,
+    data:{
+        trial: "condition instructions",
+    },
+};
+timeline.push(condition_instructions);
+/////QUIZ (will be added later)
+var last_instructions = {
+    type: 'instructions',
+    pages: [
+        `<div class='instructions'>
+            <p>You will now start.</p>
+            <p>Trials where you indicate your LIKING, and when you RESPOND NATURALLY
+             or FOCUS ON HEALTHNIESS as you indicate your wanting choices will be 
+             presented in blocks.</p>
+            <p>In the beginning of each block, we will display an instructional 
+            cue screen describing what you should do for the entirety of that block.</p>
+            <p>This cue screen will disppepar after a few seconds and you will move
+             on to making choices.</p>
+            
+        </div>`,
+    ],
+    show_clickable_nav: true,
+    data:{
+        trial: "last instructions",
+    },
+};
+// timeline.push(last_instructions);
+
+
+var liking_set = {
+    type: 'html-keyboard-response',
+    stimulus: `<div class='instructions'>
+            <p>LIKING RATING</p>
+            <p>For the next set of trials, we would like you to rate HOW MUCH YOU LIKE 
+            DIFFERENT FOODS. Regardless of any other considerations, please rate how 
+            much you would like to eat each food RIGHT NOW during the task.</p>
+
+        </div>`,
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 5000,
+    data:{
+        trial:'liking_set'
+    }
+};
+
+var Nat_set = {
+    type: 'html-keyboard-response',
+    stimulus: `<div class='instructions'>
+            <p>RESPOND NATURALLY</p>
+            <p>For the next set of trials, we would like you to RESPOND NATURALLY 
+            as you indicate whether you want to eat certain foods or not. Allow 
+            any feelings or thoughts you have come naturally and make whatever 
+            choice you most prefer at that moment.</p>
+
+        </div>`,
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 5000,
+    data:{
+        trial:'Nat_set'
+    }
+};
+var Health_set = {
+    type: 'html-keyboard-response',
+    stimulus: `<div class='instructions'>
+            <p>FOCUS ON HEALTHINESS</p>
+            <p>For the next set of trials, we would like you to FOCUS ON THE HEALTHINESS
+             OF THE FOODS as you indicate whether you want to eat them or not. Consider 
+             the health benefits and consequences of the food as you are deciding what 
+             you prefer to do. Then make whatever choice you most prefer.</p>
+
+        </div>`,
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 5000,
+    data:{
+        trial:'Health_set'
+    }
+};
+
+// prepare the stimuli for this subject based on taste and health ratings 
+
+// var numStimPerQuad = 2;
+var real_numStimPerQuad = Math.floor(numStimPerQuad/2);
+
+var selected_stimuli = [];
+for (let i=0;i<8*real_numStimPerQuad;i++){
+    selected_stimuli[i] = '';
+};
+var Nat_stimuli = [];
+for (let i=0;i<4*real_numStimPerQuad;i++){
+    Nat_stimuli[i] = '';
+};
+var Health_stimuli = [];
+for (let i=0;i<4*real_numStimPerQuad;i++){
+    Health_stimuli[i] = '';
+};
+
+var randomized_selected_stimuli = [];
+var randomized_Nat_stimuli = [];
+var randomized_Health_stimuli = [];
+for (nb=0;nb<n_blocks;nb++){
+    randomized_selected_stimuli[nb] = [];
+    randomized_Nat_stimuli[nb]      = [];
+    randomized_Health_stimuli[nb]   = [];
+};
+var foodQuad = [];
+foodQuad.HH = [];
+foodQuad.LL = [];
+foodQuad.LH = [];
+foodQuad.HL = [];
+var select_stimuli = {
+    type: 'html-keyboard-response',
+    // on_start: function(){},
+    stimulus: `Just a moment...`,
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 500,
+    on_finish:function(data){
+        var tasteTrials  = jsPsych.data.get().filter({trial:'tasteRating'});
+        var healthTrials = jsPsych.data.get().filter({trial:'healthRating'});
+        var foodT = tasteTrials.select('food');//filterCustom(function(x){return x.food;});
+        var rateT = tasteTrials.select('rating');//filterCustom(function(x){return x.rating;});
+        var foodH = healthTrials.select('food');
+        var rateH = healthTrials.select('rating');
+        foodT = foodT.values;
+        foodH = foodH.values;
+        rateT = rateT.values;
+        rateH = rateH.values;
+
+            // var numStimPerQuad =2; //number of foods to be selected
+        var pickFood4Quads = function(tresT,tresH,quadType){
+            quad = []
+            while (quad.length < 2*real_numStimPerQuad){
+                const tempft = [];
+                const tempfh = []
+                let it = 0;
+                let ih = 0;
+                if (quadType === 'LL'){
+                    for (let i=0; i < rateT.length; i++){
+                        if (rateT[i] <= tresT){
+                            tempft[it] = foodT[i];
+                            it += 1;
+                        }
+                        if (rateH[i] <= tresH){
+                            tempfh[ih] = foodH[i];
+                            ih += 1;
+                        }
+                    };
+                    quad = tempft.filter(value => tempfh.includes(value));
+                    if (tempft.length <tempfh.length){
+                        tresT += 1;
+                    } else {
+                        tresH += 1;
+                    };
+
+                } else if (quadType === 'LH') {
+                    for (let i=0; i < rateT.length; i++){
+
+                        if (rateT[i] <= tresT){
+                            tempft[it] = foodT[i];
+                            it += 1;
+                        }
+                        if (rateH[i] >= tresH){
+                            tempfh[ih] = foodH[i];
+                            ih += 1;
+                        }
+                    };
+                    quad = tempft.filter(value => tempfh.includes(value));
+                    if (tempft.length <tempfh.length){
+                        tresT += 1;
+                    } else {
+                        tresH -= 1;
+                    };
+
+                } else if (quadType === 'HL') { 
+                    for (let i=0; i < rateT.length; i++){
+
+                        if (rateT[i] >= tresT){
+                            tempft[it] = foodT[i];
+                            it += 1;
+                        }
+                        if (rateH[i] <= tresH){
+                            tempfh[ih] = foodH[i];
+                            ih += 1;
+                        }
+                    };
+                    quad = tempft.filter(value => tempfh.includes(value));
+                    if (tempft.length <tempfh.length){
+                        tresT -= 1;
+                    } else {
+                        tresH += 1;
+                    };
+
+                } else if (quadType === 'HH') {
+                    for (let i=0; i < rateT.length; i++){
+
+                        if (rateT[i] >= tresT){
+                            tempft[it] = foodT[i];
+                            it += 1;
+                        }
+                        if (rateH[i] >= tresH){
+                            tempfh[ih] = foodH[i];
+                            ih += 1;
+                        }
+                        quad = tempft.filter(value => tempfh.includes(value));
+                        if (tempft.length <tempfh.length){
+                            tresT -= 1;
+                        } else {
+                            tresH -= 1;
+                        };
+                    };
+
+                } else {
+                    console.log('incorrect quadrant')
+                }
+
+            };
+            quad = quad.slice(0,2*real_numStimPerQuad)
+            console.log(quadType);
+            // console.log(quad);
+            // console.log(rateT.length);
+            // console.log(rateH.length);
+            // console.log(foodT.length);
+            // console.log(foodH.length);
+            
+            return quad;
+        };
+        var updateRate = function(food,rate,quad){
+            var newRate = [];
+            ind = 0;
+            for (i=0;i<food.length;i++){
+                if (!quad.includes(food[i])){
+                    newRate[ind] = rate[i];
+                    ind++
+                };
+            };
+        return newRate;
+        };
+
+        // LL quadrant
+        var LL = pickFood4Quads(0,0,'LL');
+        foodQuad.LL = LL;
+        //remove selected foods
+        rateT = updateRate(foodT,rateT,LL);
+        foodT = foodT.filter(value => !LL.includes(value));
+        rateH = updateRate(foodH,rateH,LL);
+        foodH = foodH.filter(value => !LL.includes(value));
+        // LH quadrant
+        var LH = pickFood4Quads(0,4,'LH');
+        foodQuad.LH = LH;
+        //remove selected foods
+        rateT = updateRate(foodT,rateT,LH);
+        foodT = foodT.filter(value => !LH.includes(value));
+        rateH = updateRate(foodH,rateH,LH);
+        foodH = foodH.filter(value => !LH.includes(value));
+        // HL quadrant
+        var HL = pickFood4Quads(4,0,'HL');
+        foodQuad.HL = HL;
+        //remove selected foods
+        rateT = updateRate(foodT,rateT,HL);
+        foodT = foodT.filter(value => !HL.includes(value));
+        rateH = updateRate(foodH,rateH,HL);
+        foodH = foodH.filter(value => !HL.includes(value));
+        // console.log(foodT)
+        // console.log(foodH)
+        // console.log(rateT)
+        // console.log(rateH)
+        // HH quadrant
+        var HH = pickFood4Quads(4,4,'HH');
+        foodQuad.HH = HH;
+        // console.log(foodQuad)
+        //remove selected foods
+        rateT = updateRate(foodT,rateT,HH);
+        foodT = foodT.filter(value => !HH.includes(value));
+        rateH = updateRate(foodH,rateH,HH);
+        foodH = foodH.filter(value => !HH.includes(value));
+        Nat_stimuli    = LL.slice(0,real_numStimPerQuad).concat(LH.slice(0,real_numStimPerQuad),HL.slice(0,real_numStimPerQuad),HH.slice(0,real_numStimPerQuad));
+        Health_stimuli = LL.slice(real_numStimPerQuad,real_numStimPerQuad*2).concat(LH.slice(real_numStimPerQuad,real_numStimPerQuad*2),HL.slice(real_numStimPerQuad,real_numStimPerQuad*2),HH.slice(real_numStimPerQuad,real_numStimPerQuad*2));
+        // console.log(Nat_stimuli)
+        // console.log(Health_stimuli)
+        for (s=0;s<Nat_stimuli.length;s++){
+            Nat_stimuli[s]    = 'AllFoodPics/'+Nat_stimuli[s];
+            Health_stimuli[s] = 'AllFoodPics/'+Health_stimuli[s];
+
+            };
+
+        selected_stimuli = Nat_stimuli.concat(Health_stimuli);
+        // Nat_stimuli      = selected_stimuli.slice(0,Math.floor(numStimPerQuad/2));
+        // Health_stimuli   = selected_stimuli.slice(2*numStimPerQuad);
+        // create randomized blocks
+        for (nb=0;nb<n_blocks;nb++){
+            randomized_selected_stimuli[nb] = jsPsych.randomization.shuffle(selected_stimuli);
+            randomized_Nat_stimuli[nb]      = jsPsych.randomization.shuffle(Nat_stimuli);
+            randomized_Health_stimuli[nb]   = jsPsych.randomization.shuffle(Health_stimuli);
+
+        };
+        // for (i=0;i<2*numStimPerQuad;i++){
+        //     Nat_stimuli[i] = selected_stimuli[i];
+        // };
+        // for (i=0;i<2*numStimPerQuad;i++){
+        //     Health_stimuli[i] = selected_stimuli[i];
+        // };
+
+        // for (s=0;s<4*numStimPerQuad;s++){
+        //     selected_stimuli[s]={stimulus:allQuads[s]};
+        // };
+        data.selected_stimuli = selected_stimuli;
+        data.Nat_stimuli      = Nat_stimuli;
+        data.Health_stimuli   = Health_stimuli;
+        data.foodQuad  = foodQuad;
+        // data.foodT = foodT;
+        // data.foodH = foodH;
+        // data.sizes = selected_stimuli.length;
+
+    },
+};
+timeline.push(select_stimuli);
+
+// Run blocks of likingRating, Natural, and Health
+for (let nb=0;nb<n_blocks;nb++){
+    // console.log(nb)
+    timeline.push(liking_set);
+    // img_nums = jsPsych.randomization.shuffle(img_nums);
+    // selected_stimuli = jsPsych.randomization.shuffle(selected_stimuli)
+    // console.log(img_nums)
+    for (let i=0;i<8*real_numStimPerQuad;i++){
+        var likingRatingTrial = {
+            type: 'image-button-response',
+            stimulus:function(){return randomized_selected_stimuli[nb][i]},//selected_stimuli[0].stimulus,//jsPsych.timelineVariable('stimulus'),//function() {
+            choices:likingRatingLabels,//['1','2','3','4','5','6'],
+            margin_vertical: '30px',
+            margin_horizontal: '8px',
+            stimulus_height: 500,
+            // trial_duration: 4000,
+            response_ends_trial:true,
+            on_finish: function(data){
+                data.trial = 'likingRating';
+                data.food = data.stimulus.slice(data.stimulus.indexOf('/')+1);
+                data.responseLabel = likingRatingLabels[data.response];
+                data.block = nb;
+                if (respDirection=='LR') {
+                    data.rating = parseInt(data.response);
+                } else {
+                    temp = [
+                    'Strongly like',
+                    'Moderately like',
+                    'Slightly like',
+                    'Slightly dislike',
+                    'Moderately dislike',
+                    'Very dislike',
+                    ];
+                    data.rating = parseInt(temp.reverse().indexOf(data.responseLabel));
+                    // data.index = img_nums[i];
+                };
+                // data.test=trials;
+            },
+            // timeline:trials,//jsPsych.data.get().select('selected_stimuli'),
+        };
+    timeline.push(fixation,likingRatingTrial)//,l
+    };
+    
+    timeline.push(Nat_set);
+    // set_img_nums = jsPsych.randomization.shuffle(set_img_nums);
+    // console.log(set_img_nums)
+    // Nat_stimuli = jsPsych.randomization.shuffle(Nat_stimuli);
+    for (let i=0;i<4*real_numStimPerQuad;i++){
+        var Natural_choiceTrial = {
+            type: 'image-button-response',
+            stimulus:function(){return randomized_Nat_stimuli[nb][i]},//selected_stimuli[0].stimulus,//jsPsych.timelineVariable('stimulus'),//function() {
+            choices:choiceLabels,//['1','2','3','4','5','6'],
+            margin_vertical: '30px',
+            margin_horizontal: '8px',
+            stimulus_height: 500,
+            // trial_duration: 4000,
+            response_ends_trial:true,
+            on_finish: function(data){
+                data.trial = 'Nat_choiceTrial';
+                data.food = data.stimulus.slice(data.stimulus.indexOf('/')+1);
+                data.responseLabel = choiceLabels[data.response];
+                data.block = nb;
+                if (respDirection=='LR') {
+                    data.rating = parseInt(data.response);
+                } else {
+                    temp = [
+                    'Strong Yes',
+                    'Moderate Yes',
+                    'Slight Yes',
+                    'Slight No',
+                    'Moderate No',
+                    'Strong No',
+
+                    ];
+                    data.rating = parseInt(temp.reverse().indexOf(data.responseLabel));
+                    // data.index = img_nums[i];
+                };
+                // data.test=trials;
+            },
+            // timeline:trials,//jsPsych.data.get().select('selected_stimuli'),
+        };
+    timeline.push(fixation,Natural_choiceTrial)//,l
+    };
+
+    timeline.push(Health_set);
+    // set_img_nums = jsPsych.randomization.shuffle(set_img_nums);
+
+    // console.log(set_img_nums)
+
+    for (let i=0;i<4*real_numStimPerQuad;i++){
+        var Health_choiceTrial = {
+            type: 'image-button-response',
+            stimulus:function(){return randomized_Health_stimuli[nb][i]},//selected_stimuli[0].stimulus,//jsPsych.timelineVariable('stimulus'),//function() {
+            choices:choiceLabels,//['1','2','3','4','5','6'],
+            margin_vertical: '30px',
+            margin_horizontal: '8px',
+            stimulus_height: 500,
+            // trial_duration: 4000,
+            response_ends_trial:true,
+            on_finish: function(data){
+                data.trial = 'Health_choiceTrial';
+                data.food = data.stimulus.slice(data.stimulus.indexOf('/')+1);
+                data.responseLabel = choiceLabels[data.response];
+                data.block = nb;
+                if (respDirection=='LR') {
+                    data.rating = parseInt(data.response);
+                } else {
+                    temp = [
+                    'Strong Yes',
+                    'Moderate Yes',
+                    'Slight Yes',
+                    'Slight No',
+                    'Moderate No',
+                    'Strong No',
+                    ];
+                    data.rating = parseInt(temp.reverse().indexOf(data.responseLabel));
+                    // data.index = img_nums[i];
+                };
+                // data.test=trials;
+            },
+            // timeline:trials,//jsPsych.data.get().select('selected_stimuli'),
+        };
+    timeline.push(fixation,Health_choiceTrial)//,l
+    };
+};
+
+// after task instructions
+var after_instructions = {
+    type: 'instructions',
+    pages: [
+    `<div class='instructions'>
+            <p>Great! You finished all rating and choice blocks.</p>
+            <p>There is only one more thing we would like to record.</p>
+            
+        </div>`,
+
+        `<div class='instructions'>
+            <p>We are interested in your <strong>perceptions of different foods</strong> again. 
+            You will see several different pictures of foods, and for each one we would like 
+            you to rate it on tastiness and healthiness as you did before.</p>
+            
+        </div>`,
+    ],
+    show_clickable_nav: true,
+    data:{
+        trial: "last instructions",
+    },
+};
+timeline.push(after_instructions);
+
+if (rateOrder == 0){
+    timeline.push(taste_instructions);
+    timeline.push(block_taste);
+    timeline.push(health_instructions);
+    timeline.push(block_health);
+} else {
+    timeline.push(health_instructions);
+    timeline.push(block_health);
+    timeline.push(taste_instructions);
+    timeline.push(block_taste);
+};
+var hungerQuestionPost = {
+    type: 'html-button-response',
+    stimulus: `<p>We would like to know how <strong>hungry you feel RIGHT NOW</strong> again.</p>
+    <p>Please indicate how hungry you are at this moment by pressing a key from
+    1 (stuffed) to 6 (starving).</p>`,
+    choices:hungerLabels,//['1','2','3','4','5','6'],
+    margin_vertical: '30px',
+    margin_horizontal: '8px',
+    // stimulus_height: 500,
+    // trial_duration: 4000,
+    response_ends_trial:true,
+    on_finish: function(data){
+        data.trial = 'hungerRatingPost';
+        data.responseLabel = hungerLabels[data.response];
+        data.rating = parseInt(data.response);
+    },
+};
+timeline.push(hungerQuestionPost);
+
+var end_instructions = {
+    type: 'html-keyboard-response',
+    stimulus: [
+    `<div class='instructions'>
+            <p>You have finished the experiment now.</p>
+            <p> Thank you very much for your participation!</p>
+            
+        </div>`,
+    ],
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 2000,
+    data:{
+        trial: "end instructions",
+    },
+};
+timeline.push(end_instructions);
+
+jsPsych.init({
+    timeline: timeline,
+    on_finish: function(){
+        // jsPsych.data.displayData()
+        jsPsych.data.get().localSave('csv','fooddata.csv')
+    }
+})
+// </script>
+// </html>
